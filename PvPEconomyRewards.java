@@ -18,38 +18,35 @@ import java.util.UUID;
 public class PvPEconomyRewards extends JavaPlugin implements Listener {
 
     private Economy econ = null;
-
-    // Killer UUID -> (Victim UUID -> Last Kill Timestamp ms)
     private final Map<UUID, Map<UUID, Long>> killCooldowns = new HashMap<>();
-
-    // Settings
-    private static final double STEAL_PERCENTAGE = 0.05;    // 5%
-    private static final double MAX_STEAL = 15000.0;        // Max $15,000 cap
-    private static final double MIN_BALANCE = 100.0;        // Min $100 victim balance
-    private static final long COOLDOWN_MS = 600 * 1000;     // 10 minute cooldown (600s)
-    private static final int MIN_PLAYTIME_MINUTES = 30;     // Min 30m victim playtime
 
     @Override
     public void onEnable() {
+        // Save default config.yml if it doesn't exist
+        saveDefaultConfig();
+
         if (!setupEconomy()) {
-            getLogger().severe("Vault plugin or Economy provider (e.g. EssentialsX) not found! Disabling.");
+            getLogger().severe("Vault plugin or Economy provider not found! Disabling.");
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
+
         getServer().getPluginManager().registerEvents(this, this);
-        getLogger().info("PvPEconomyRewards enabled successfully!");
+        getLogger().info("PvPEconomyRewards enabled with config!");
     }
 
     private boolean setupEconomy() {
-        if (getServer().getPluginManager().getPlugin("Vault") == null) {
-            return false;
-        }
+        if (getServer().getPluginManager().getPlugin("Vault") == null) return false;
         RegisteredServiceProvider<Economy> rsp = getServer().getServicesManager().getRegistration(Economy.class);
-        if (rsp == null) {
-            return false;
-        }
+        if (rsp == null) return false;
         econ = rsp.getProvider();
         return econ != null;
+    }
+
+    private String getMsg(String path) {
+        String prefix = getConfig().getString("messages.prefix", "&8[&cPvP&8] ");
+        String msg = getConfig().getString("messages." + path, "");
+        return ChatColor.translateAlternateColorCodes('&', prefix + msg);
     }
 
     @EventHandler
@@ -57,69 +54,75 @@ public class PvPEconomyRewards extends JavaPlugin implements Listener {
         Player victim = event.getEntity();
         Player killer = victim.getKiller();
 
-        // 1. Must be killed by another player
-        if (killer == null || killer.equals(victim)) {
+        if (killer == null || killer.equals(victim)) return;
+
+        // 1. Same IP Check
+        if (getConfig().getBoolean("anti-farm.check-ip", true)) {
+            if (killer.getAddress() != null && victim.getAddress() != null) {
+                if (killer.getAddress().getAddress().equals(victim.getAddress().getAddress())) {
+                    killer.sendMessage(getMsg("denied-ip"));
+                    return;
+                }
+            }
+        }
+
+        // 2. Playtime Check
+        int minPlaytime = getConfig().getInt("anti-farm.min-playtime-minutes", 30);
+        int victimPlaytimeMinutes = victim.getStatistic(Statistic.PLAY_ONE_MINUTE) / (20 * 60);
+        if (victimPlaytimeMinutes < minPlaytime) {
+            killer.sendMessage(getMsg("denied-playtime"));
             return;
         }
 
-        // 2. Anti-Farm: Same IP Check
-        if (killer.getAddress() != null && victim.getAddress() != null) {
-            if (killer.getAddress().getAddress().equals(victim.getAddress().getAddress())) {
-                killer.sendMessage(ChatColor.RED + "[PvP] Reward denied: Same IP network detected.");
+        // 3. Armor Check
+        if (getConfig().getBoolean("anti-farm.require-armor", true)) {
+            boolean wearingArmor = false;
+            for (ItemStack armor : victim.getInventory().getArmorContents()) {
+                if (armor != null && !armor.getType().isAir()) {
+                    wearingArmor = true;
+                    break;
+                }
+            }
+            if (!wearingArmor) {
+                killer.sendMessage(getMsg("denied-armor"));
                 return;
             }
         }
 
-        // 3. Anti-Farm: Minimum Playtime Check (Ticks to Minutes)
-        int victimPlaytimeMinutes = victim.getStatistic(Statistic.PLAY_ONE_MINUTE) / (20 * 60);
-        if (victimPlaytimeMinutes < MIN_PLAYTIME_MINUTES) {
-            killer.sendMessage(ChatColor.RED + "[PvP] Reward denied: Victim has under 30 minutes playtime.");
-            return;
-        }
-
-        // 4. Anti-Farm: Gear Check (Victim must wear at least 1 piece of armor)
-        boolean isWearingArmor = false;
-        for (ItemStack armor : victim.getInventory().getArmorContents()) {
-            if (armor != null && !armor.getType().isAir()) {
-                isWearingArmor = true;
-                break;
-            }
-        }
-        if (!isWearingArmor) {
-            killer.sendMessage(ChatColor.RED + "[PvP] Reward denied: Victim had no armor equipped.");
-            return;
-        }
-
-        // 5. Anti-Farm: Killer -> Victim Cooldown Check
+        // 4. Target Cooldown Check
+        long cooldownMs = getConfig().getLong("cooldown-seconds", 600) * 1000L;
         long currentTime = System.currentTimeMillis();
         Map<UUID, Long> victimMap = killCooldowns.computeIfAbsent(killer.getUniqueId(), k -> new HashMap<>());
+        
         if (victimMap.containsKey(victim.getUniqueId())) {
             long lastKillTime = victimMap.get(victim.getUniqueId());
-            if (currentTime - lastKillTime < COOLDOWN_MS) {
-                long remainingSec = (COOLDOWN_MS - (currentTime - lastKillTime)) / 1000;
-                killer.sendMessage(ChatColor.RED + "[PvP] Reward denied: Target cooldown active (" + remainingSec + "s left).");
+            if (currentTime - lastKillTime < cooldownMs) {
+                long remainingSec = (cooldownMs - (currentTime - lastKillTime)) / 1000;
+                killer.sendMessage(getMsg("denied-cooldown").replace("%time%", String.valueOf(remainingSec)));
                 return;
             }
         }
 
-        // 6. Minimum Balance Check
+        // 5. Minimum Balance Check
+        double minBalance = getConfig().getDouble("minimum-victim-balance", 100.0);
         double victimBalance = econ.getBalance(victim);
-        if (victimBalance < MIN_BALANCE) {
-            killer.sendMessage(ChatColor.YELLOW + "[PvP] Victim has less than $" + MIN_BALANCE + ". No money stolen.");
+        if (victimBalance < minBalance) {
+            killer.sendMessage(getMsg("denied-low-balance"));
             return;
         }
 
-        // 7. Calculate and Transfer Cash
-        double stealAmount = Math.min(victimBalance * STEAL_PERCENTAGE, MAX_STEAL);
+        // 6. Calculate & Process Steal
+        double percentage = getConfig().getDouble("steal-percentage", 0.05);
+        double maxSteal = getConfig().getDouble("max-steal-amount", 15000.0);
+        double stealAmount = Math.min(victimBalance * percentage, maxSteal);
 
         econ.withdrawPlayer(victim, stealAmount);
         econ.depositPlayer(killer, stealAmount);
 
-        // Update cooldown timestamp
         victimMap.put(victim.getUniqueId(), currentTime);
 
-        // Notify both players
-        killer.sendMessage(ChatColor.GREEN + "[PvP] You stole $" + String.format("%.2f", stealAmount) + " from " + victim.getName() + "!");
-        victim.sendMessage(ChatColor.RED + "[PvP] You lost $" + String.format("%.2f", stealAmount) + " to " + killer.getName() + "!");
+        String formattedAmount = String.format("%.2f", stealAmount);
+        killer.sendMessage(getMsg("stole-money").replace("%amount%", formattedAmount).replace("%victim%", victim.getName()));
+        victim.sendMessage(getMsg("lost-money").replace("%amount%", formattedAmount).replace("%killer%", killer.getName()));
     }
 }
