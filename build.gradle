@@ -8,13 +8,19 @@ version = '1.0.0'
 repositories {
     mavenCentral()
     
-    // Spigot / Paper API Repo
+    // Spigot API Repository
     maven {
         name = 'spigotmc-repo'
-        url = 'https://hub.spigotmc.org/nexus/content/repositories/snapshots/'
+        url = 'https://hub.spigotmc.org/nexus/content/groups/public/'
     }
     
-    // Vault API Repo (JitPack)
+    // Sonatype repository (required for BungeeCord chat dependencies)
+    maven {
+        name = 'sonatype-oss'
+        url = 'https://oss.sonatype.org/content/repositories/snapshots/'
+    }
+    
+    // Vault API Repo
     maven {
         name = 'jitpack'
         url = 'https://jitpack.io'
@@ -22,10 +28,7 @@ repositories {
 }
 
 dependencies {
-    // Spigot API dependency for Minecraft 1.20+
     compileOnly 'org.spigotmc:spigot-api:1.20.1-R0.1-SNAPSHOT'
-    
-    // Vault API dependency
     compileOnly 'com.github.MilkBowl:VaultAPI:1.7'
 }
 
