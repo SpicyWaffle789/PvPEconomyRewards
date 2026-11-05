@@ -7,37 +7,42 @@ version = '1.0.0'
 
 repositories {
     mavenCentral()
-    
+
     // PaperMC Repository
     maven {
         name = 'papermc'
         url = 'https://repo.papermc.io/repository/maven-public/'
     }
-    
-    // Vault API Repo
+
+    // Vault API (JitPack) - only used for Vault
     maven {
         name = 'jitpack'
         url = 'https://jitpack.io'
+        content {
+            includeGroup 'com.github.MilkBowl'
+        }
     }
 }
 
 dependencies {
-    compileOnly 'io.papermc.paper:paper-api:1.20.4-R0.1-SNAPSHOT'
-    compileOnly 'com.github.MilkBowl:VaultAPI:1.7'
+    // Paper 26.x uses year-based versions: 26.3.build.<n>-alpha
+    compileOnly 'io.papermc.paper:paper-api:26.3.build.+'
+
+    compileOnly('com.github.MilkBowl:VaultAPI:1.7.1') {
+        // Vault drags in an ancient Bukkit API that conflicts with Paper
+        exclude group: 'org.bukkit'
+    }
 }
 
-def targetJavaVersion = 25
 java {
-    def javaVersion = JavaVersion.toVersion(targetJavaVersion)
-    sourceCompatibility = javaVersion
-    targetCompatibility = javaVersion
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
 }
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'
-    if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
-        options.release.set(targetJavaVersion)
-    }
+    options.release.set(25)
 }
 
 processResources {
