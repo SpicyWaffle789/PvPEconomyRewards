@@ -22,6 +22,20 @@ public class PvPEconomyRewards extends JavaPlugin implements Listener {
 
     private static final LegacyComponentSerializer LEGACY = LegacyComponentSerializer.legacyAmpersand();
 
+    // Resolved by name so this compiles whichever name the Paper build uses
+    private static final Statistic PLAYTIME_STAT = resolvePlaytimeStat();
+
+    private static Statistic resolvePlaytimeStat() {
+        for (String name : new String[] {"PLAY_ONE_MINUTE", "PLAY_TIME"}) {
+            try {
+                return Statistic.valueOf(name);
+            } catch (IllegalArgumentException ignored) {
+                // try next name
+            }
+        }
+        throw new IllegalStateException("No playtime Statistic found on this server version");
+    }
+
     private Economy econ = null;
     // killer -> (victim -> last reward time)
     private final Map<UUID, Map<UUID, Long>> killCooldowns = new HashMap<>();
@@ -98,7 +112,7 @@ public class PvPEconomyRewards extends JavaPlugin implements Listener {
 
         // 2. Playtime Check (PLAY_TIME is measured in ticks)
         int minPlaytime = getConfig().getInt("anti-farm.min-playtime-minutes", 30);
-        int victimPlaytimeMinutes = victim.getStatistic(Statistic.PLAY_TIME) / (20 * 60);
+        int victimPlaytimeMinutes = victim.getStatistic(PLAYTIME_STAT) / (20 * 60);
         if (victimPlaytimeMinutes < minPlaytime) {
             killer.sendMessage(msg("denied-playtime", Map.of("%minutes%", String.valueOf(minPlaytime))));
             return;
