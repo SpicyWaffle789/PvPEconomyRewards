@@ -1,0 +1,35 @@
+# PvPEconomyRewards Configuration
+
+# Percentage of victim's balance stolen upon death (0.05 = 5%)
+steal-percentage: 0.05
+
+# Maximum cash that can be stolen in a single death
+max-steal-amount: 15000.0
+
+# Minimum balance a victim must have before money can be stolen
+minimum-victim-balance: 1000.0
+
+# Cooldown (in seconds) between killing the same target for rewards (600 = 10 minutes)
+cooldown-seconds: 600
+
+# Anti-Farm Settings
+anti-farm:
+  # Deny rewards if killer and victim share the same IP address
+  check-ip: true
+
+  # Minimum playtime (in minutes) required for victim to yield rewards
+  min-playtime-minutes: 30
+
+  # Require victim to be wearing at least 1 piece of armor
+  require-armor: true
+
+# Chat Messages (& for color codes)
+messages:
+  prefix: "&8[&cPvP&8] "
+  stole-money: "&aYou stole &e$%amount% &afrom %victim%!"
+  lost-money: "&cYou lost &e$%amount% &cto %killer%!"
+  denied-ip: "&cReward denied: Same IP address detected."
+  denied-playtime: "&cReward denied: Victim has less than 30 minutes playtime."
+  denied-armor: "&cReward denied: Victim had no armor equipped."
+  denied-cooldown: "&cReward denied: Target cooldown active (%time%s left)."
+  denied-low-balance: "&eVictim balance is below the $100 minimum threshold."
