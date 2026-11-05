@@ -8,16 +8,10 @@ version = '1.0.0'
 repositories {
     mavenCentral()
     
-    // Spigot API Repository
+    // PaperMC Repository
     maven {
-        name = 'spigotmc-repo'
-        url = 'https://hub.spigotmc.org/nexus/content/groups/public/'
-    }
-    
-    // Sonatype repository (required for BungeeCord chat dependencies)
-    maven {
-        name = 'sonatype-oss'
-        url = 'https://oss.sonatype.org/content/repositories/snapshots/'
+        name = 'papermc'
+        url = 'https://repo.papermc.io/repository/maven-public/'
     }
     
     // Vault API Repo
@@ -28,7 +22,8 @@ repositories {
 }
 
 dependencies {
-    compileOnly 'org.spigotmc:spigot-api:1.20.1-R0.1-SNAPSHOT'
+    // Paper API dependency for Paper builds
+    compileOnly 'io.papermc.paper:paper-api:1.20.4-R0.1-SNAPSHOT'
     compileOnly 'com.github.MilkBowl:VaultAPI:1.7'
 }
 
