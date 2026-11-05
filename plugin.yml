@@ -1,0 +1,6 @@
+name: PvPEconomyRewards
+version: 1.0.0
+main: com.example.pvpeconomy.PvPEconomyRewards
+api-version: 1.20
+depend: [Vault]
+description: Steals 5% balance on PvP kill with anti-farm checks.
